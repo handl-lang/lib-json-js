@@ -1,0 +1,11 @@
+-- lib-json-js: modules this package provides (entry defaults to
+-- src/index.hnl; N modules resolve to src/<name>/index.hnl).
+{
+  deps: { json: "branch:main", js: "branch:main" },
+  modules: ["json-js"],
+  name: "json-js",
+  description: "JSON codec over the JS JSON global — JS-host backend of lib-json via the js ffi.",
+  license: "MIT",
+  keywords: ["json", "codec", "js", "backend"],
+  homepage: "https://github.com/handl-lang/lib-json-js",
+}

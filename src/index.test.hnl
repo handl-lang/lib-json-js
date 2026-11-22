@@ -1,0 +1,41 @@
+--- json-js contract tests — mirror `lib-json`'s suite (`src/json.test.hnl`).
+---
+--- Every case goes through `js.call` (`JSON.stringify`/`JSON.parse`)
+--- and needs a JS host; on a host without the `js` natives the calls
+--- surface as `call_host` failures, which `scripts/hnl-gate.sh`
+--- tolerates. Cases below pin the ECMAScript semantics this backend
+--- inherits: strict parsing, correct escape handling, and JSON's
+--- number/key-order rules.
+
+from "./index" import * as m
+
+test_s_null := assert m.stringify(null) = "null"
+test_s_num := assert m.stringify(42) = "42"
+test_s_num_frac := assert m.stringify(1.5) = "1.5"
+test_s_bool := assert m.stringify(true) = "true"
+test_s_str := assert m.stringify("hi") = "\"hi\""
+test_s_str_escape := assert m.stringify("a\"b") = "\"a\\\"b\""
+test_s_str_backslash := assert m.stringify("a\\b") = "\"a\\\\b\""
+test_s_str_newline := assert m.stringify("a\nb") = "\"a\\nb\""
+test_s_unicode := assert m.stringify("héllo") = "\"héllo\""
+test_s_arr := assert m.stringify([1, 2]) = "[1,2]"
+test_s_obj := assert m.stringify({ a: 1 }) = "{\"a\":1}"
+test_s_nested := assert m.stringify({ a: [1, { b: null }], c: "x" }) = "{\"a\":[1,{\"b\":null}],\"c\":\"x\"}"
+test_s_nonfinite := assert m.stringify(0 / 0) = "null"
+
+test_p_num := assert m.parse("42") = 42
+test_p_num_float := assert m.parse("1.5") = 1.5
+test_p_str := assert m.parse("\"hi\"") = "hi"
+test_p_str_escape := assert m.parse("\"a\\nb\"") = "a\nb"
+test_p_str_unicode_escape := assert m.parse("\"\\u00e9\"") = "é"
+test_p_arr := assert m.parse("[1,2]") = [1, 2]
+test_p_obj := assert m.parse("{\"a\":1}") = { a: 1 }
+test_p_bool := assert m.parse("true") = true
+test_p_false := assert m.parse("false") = false
+test_p_null := assert m.parse("null") = null
+test_p_nest := assert m.parse("{\"a\":[1,{\"b\":null}]}") = { a: [1, { b: null }] }
+test_p_whitespace := assert m.parse("  { \"a\" : [ 1 , 2 ] } \n") = { a: [1, 2] }
+test_p_scalar_top := assert m.parse("\"just a string\"") = "just a string"
+
+test_rt := assert m.parse(m.stringify({ a: [1, 2], b: { c: "x" } })) = { a: [1, 2], b: { c: "x" } }
+test_rt_str := assert m.parse(m.stringify("héllo wörld")) = "héllo wörld"

@@ -1,0 +1,77 @@
+--- json-js -- JavaScript-backed implementation of the `json` codec contract.
+---
+--- `json.stringify`/`json.parse` are the ECMAScript `JSON` global reached
+--- through the host-injected `js.call` marshaller; `json.json` returns the
+--- same codec token `lib-json` mints, so a consumer that resolves this
+--- backend gets a drop-in `encode`/`decode` pair.
+---
+--- Marshalling: the contract's `Value` is the full JSON domain (null,
+--- Bool, Number, String, Arr, Obj). There is no `js_value`/`js_any`
+--- descriptor in the js ffi vocabulary, so the union-typed argument and
+--- result use `js_object` — the documented catch-all for
+--- any/object/sequence/record/union/nullable (the same descriptor
+--- `lib-fetch-js` uses for `resp.json()`'s arbitrary JSON result). The
+--- `String` side uses `js_string`. Under the compile-js default shim the
+--- descriptors are ignored entirely: a handl record already lowers to a
+--- JS object, a handl array to a JS array, and scalars to their JS
+--- primitives, so `JSON.stringify`/`JSON.parse` see exactly the JSON
+--- domain natively and results lower straight back.
+---
+--- `throws` is `true` on both calls: a malformed document surfaces the
+--- host's `SyntaxError` (and a non-serializable input its `TypeError`)
+--- as an ordinary eval error — the contract has no `{err}` channel, so
+--- raising is the honest mapping (contrast `lib-fetch-js`, which
+--- recovers into `{ err: JsError }` because `fetch`'s contract does).
+---
+--- Deliberate divergences / notes vs `lib-json` (the C-backed codec)
+--- and `lib-json-handl` (the pure-handl reference):
+--- - Strictness: `JSON.parse` is strict RFC 8259 — it rejects trailing
+---   commas, single-quoted strings, unquoted keys, comments and
+---   trailing garbage, and it *processes* escapes correctly
+---   (`"\n"` -> newline, `"\uXXXX"`, surrogate pairs). `lib-json-handl`'s
+---   scanner is more lenient in places and drops the backslash on
+---   escapes (`"\n"` -> `n`), so escape-bearing documents parse
+---   differently; `lib-json`'s C parser is the closer reference but
+---   this backend inherits JS semantics wholesale.
+--- - Key order: JS objects iterate integer-index keys ("0", "1", …,
+---   canonical numeric strings) in ascending numeric order *before*
+---   string keys in insertion order. `parse`/`stringify` of an object
+---   whose keys look like array indices therefore reorders them vs
+---   document order; `lib-json-handl`'s `obj.from_entries` preserves
+---   insertion order. Affects both directions symmetrically, so
+---   round-trips are stable but not order-faithful to the input text.
+--- - Numbers: every JS number is an IEEE-754 double. `stringify`
+---   renders the ECMAScript shortest-round-trip form (`1` not `1.0`,
+---   `1e21` as `1e+21`); non-finite inputs (`NaN`, `±Infinity`) emit
+---   `null` per spec. `parse` yields doubles throughout — integers
+---   beyond 2^53 lose precision, matching every JS consumer.
+---   `-0` stringifies as `0` and parses back as `-0`.
+--- - Escaping: `JSON.stringify` escapes all control characters,
+---   `"` and `\` (and lone surrogates as `\uXXXX`); `lib-json-handl`'s
+---   `esc` handles only `"`/`\` and would emit raw control bytes —
+---   invalid JSON — so this backend is strictly more correct there.
+---   Non-ASCII is emitted literally (UTF-16), not `\uXXXX`-escaped.
+--- - Duplicate keys: last occurrence wins on `parse` (JS object
+---   semantics); `lib-json-handl`'s `obj.from_entries` agrees.
+--- - `Bytes` are outside the contract's `Value`; under compile-js they
+---   lower to `null` (so `stringify` yields `"null"`), and under a
+---   marshalling host a byte handle would reach `JSON.stringify` as an
+---   opaque object and serialize as `{}` — neither is meaningful JSON
+---   data, matching the contract's silence on the type.
+--- - Unlike `lib-json` this backend is a single module: `json-js` is
+---   the module name (mirroring `str-js`/`math-js`), so consumers
+---   import `from "json-js" import { stringify, parse, json }`; the
+---   `json.stringify`/`json.parse`/`json.json` op names of the contract
+---   are the *capability* names, not import paths.
+
+from "js" import { call }
+
+-- ---------------------------------------------------------------------------
+-- Exports — the `json` contract surface (`lib-json`'s `stringify`/`parse`/`json`).
+-- ---------------------------------------------------------------------------
+
+export stringify := (v) ~> call("JSON", "stringify", [v], ["js_object"], "js_string", true)
+
+export parse := (s) ~> call("JSON", "parse", [s], ["js_string"], "js_object", true)
+
+export json := () ~> ({ "type": "codec", "name": "json", "encode": stringify, "decode": parse })
