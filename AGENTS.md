@@ -9,7 +9,7 @@
 | --- | --- |
 | `src/index.hnl` | the full `lib-json` surface — `stringify`, `parse`, codec token |
 | `src/index.test.hnl` | tests |
-| `pkg.hnl` | manifest — deps `json`, `js` (`branch:main`) |
+| `pkg.hnl` | manifest — dep `json` (`branch:main`); `js` is deliberately NOT a dep (see Contract) |
 | `scripts/hnl-gate.sh` | `.hnl` gate |
 | `workflows/gate.yaml` | CI — shared `handl-gates` campaign |
 
@@ -22,6 +22,15 @@
 - Same surface/semantics as `lib-json` — JS `JSON.parse` is stricter,
   so check lenient-parse expectations at the boundary.
 - Pure `.hnl` over `ffi.call`; no Rust crate.
+- `js` stays out of `pkg.hnl` `deps` and `.handl.toml` `[dependencies]`:
+  the `js` contract is a host/builtin surface (compile-js binds
+  `from "js"` to `__handl_rt` shims regardless of dep tables). Declaring
+  the dep makes `hnl run`/`hnl test` resolve `js` to `lib-js`'s
+  signature-only exports — `call` erases to `null` and every call dies
+  with "callee is not an arrow-value". Undeclared, the import lowers to
+  the ambient `"js.call"` callee and fails honestly as
+  `call_host: function 'js.call' not found` on hosts without JS natives
+  (the shape `scripts/hnl-gate.sh` tolerates).
 
 ## Verification
 

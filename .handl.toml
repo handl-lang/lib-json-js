@@ -1,6 +1,5 @@
 [dependencies]
 json = { path = "../lib-json/src" }
-js = { path = "../lib-js/src" }
 
 # own package
 json-js = { path = "src" }

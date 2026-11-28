@@ -1,7 +1,12 @@
 -- lib-json-js: modules this package provides (entry defaults to
 -- src/index.hnl; N modules resolve to src/<name>/index.hnl).
 {
-  deps: { json: "branch:main", js: "branch:main" },
+  -- `js` is intentionally NOT a dep: it is a host/builtin contract
+  -- (compile-js binds `from "js"` to __handl_rt shims regardless of dep
+  -- tables). Declaring it makes hnl run/test resolve `js` to lib-js's
+  -- signature-erased exports (`call` -> null) instead of the ambient
+  -- `js.*` call_host surface — see AGENTS.md.
+  deps: { json: "branch:main" },
   modules: ["json-js"],
   name: "json-js",
   description: "JSON codec over the JS JSON global — JS-host backend of lib-json via the js ffi.",

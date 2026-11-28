@@ -33,7 +33,11 @@ test_s_obj := assert m.stringify({ a: 1 }) == "{\"a\":1}"
 
 test_s_nested := assert m.stringify({ a: [1, { b: null }], c: "x" }) == "{\"a\":[1,{\"b\":null}],\"c\":\"x\"}"
 
-test_s_nonfinite := assert m.stringify(0 / 0) == "null"
+--- `math.nan()` is the host NaN atom; the serde boundary flattens it to
+--- `null` before marshalling (JSON has no NaN), and `0 / 0` would raise
+--- division-by-zero while evaluating the argument — either way the call
+--- must be attempted for the `call_host` failure shape the gate tolerates.
+test_s_nonfinite := assert m.stringify(math.nan()) == "null"
 
 test_p_num := assert m.parse("42") == 42
 
